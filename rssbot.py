@@ -140,7 +140,7 @@ class RSSBot:
 
 if __name__ == "__main__":
     try:
-        bot = RSSBot('./setting.json')
+        bot = RSSBot('/app/setting.json')
         bot.run()
     except Exception as e:
         logger.error(f"Critical error during bot startup: {e}")

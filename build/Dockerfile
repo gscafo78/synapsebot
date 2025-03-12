@@ -13,5 +13,6 @@ WORKDIR /app
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+VOLUME /app
 # Specify the command to run the application
 CMD ["python", "rssbot.py"]
