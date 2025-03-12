@@ -1,7 +1,7 @@
 import json
 import random
 import feedparser
-from datetime import datetime, timedelta
+from datetime import datetime
 from croniter import croniter
 import time
 import logging
@@ -16,29 +16,31 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class ConfigModel(BaseModel):
-    url_synapse: str
+    url_synapse: str  # No longer HttpUrl, accepts any string
     port_synapse: int
     id_room: str
-    rss: List[str]
+    rss: List[str]  # No longer HttpUrl, accepts any string
     cron: str
     mute: Dict[str, str]
 
 class RSSBot:
     def __init__(self, config_file: str):
-        self.config_file = config_file
-        self.rss_cache = {}  # Cache per i feed RSS
-        self.cache_expiry = timedelta(minutes=30)  # Tempo di scadenza della cache
+        self.config_file = config_file  # Store the configuration file path
         try:
+            # Load the configuration file
             with open(config_file, 'r') as file:
                 config_data = json.load(file)
+            
+            # Validate configuration (excluding the token from validation)
             self.config = ConfigModel(**{k: v for k, v in config_data.items() if k != 'token'})
             self.url_synapse = self.config.url_synapse
             self.port_synapse = self.config.port_synapse
             self.id_room = self.config.id_room
-            self.rss_feeds = self.config.rss[:10]  # Limita a 10 feed RSS
+            self.rss_feeds = self.config.rss
             self.cron = self.config.cron
             self.mute_from = self.config.mute.get('from')
             self.mute_to = self.config.mute.get('to')
+
         except FileNotFoundError:
             logger.error(f"Configuration file '{config_file}' not found.")
             raise
@@ -53,6 +55,7 @@ class RSSBot:
             raise
 
     def _read_token(self) -> Optional[str]:
+        """Reads the token from the JSON file."""
         try:
             with open(self.config_file, 'r') as file:
                 config_data = json.load(file)
@@ -63,13 +66,8 @@ class RSSBot:
 
     async def fetch_random_article(self) -> Optional[Dict[str, str]]:
         articles = []
-        now = datetime.now()
         async with aiohttp.ClientSession() as session:
             for feed_url in self.rss_feeds:
-                if feed_url in self.rss_cache and now - self.rss_cache[feed_url]['timestamp'] < self.cache_expiry:
-                    articles.extend(self.rss_cache[feed_url]['articles'])
-                    continue
-
                 try:
                     async with session.get(feed_url) as response:
                         if response.status == 200:
@@ -77,15 +75,12 @@ class RSSBot:
                             if feed.bozo:
                                 logger.warning(f"Error parsing the RSS feed: {feed_url}. Error: {feed.bozo_exception}")
                                 continue
-                            feed_articles = []
                             for entry in feed.entries:
-                                feed_articles.append({
+                                articles.append({
                                     'title': entry.title,
                                     'link': entry.link,
                                     'summary': entry.summary if hasattr(entry, 'summary') else "No summary available."
                                 })
-                            self.rss_cache[feed_url] = {'timestamp': now, 'articles': feed_articles}
-                            articles.extend(feed_articles)
                         else:
                             logger.warning(f"Failed to fetch {feed_url}: {response.status}")
                 except Exception as e:
@@ -95,14 +90,16 @@ class RSSBot:
         return random.choice(articles) if articles else None
 
     async def send_message(self, message: str) -> bool:
+        # Read the token from the JSON file
         token = self._read_token()
         if not token:
             logger.error("Token not found in config file.")
             return False
 
+        # Explicitly construct the HTTP URL
         url = f"http://{self.url_synapse}:{self.port_synapse}/_matrix/client/r0/rooms/{self.id_room}/send/m.room.message"
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {token}",  # Use the token read from the file
             "Content-Type": "application/json"
         }
         data = {
@@ -120,16 +117,19 @@ class RSSBot:
             return False
 
     async def mark_message_as_read(self, event_id: str) -> bool:
+        """Marks a message as read."""
         token = self._read_token()
         if not token:
             logger.error("Token not found in config file.")
             return False
 
+        # Construct the URL to mark the message as read
         url = f"http://{self.url_synapse}:{self.port_synapse}/_matrix/client/r0/rooms/{self.id_room}/receipt/m.read/{event_id}"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
+        # Request body
         data = {
             "m.read": {
                 "event_id": event_id
@@ -147,11 +147,13 @@ class RSSBot:
             return False
 
     async def listen_for_events(self):
+        """Listens for events in the room and handles messages and user entries."""
         token = self._read_token()
         if not token:
             logger.error("Token not found in config file.")
             return
 
+        # URL for the /sync request
         url = f"http://{self.url_synapse}:{self.port_synapse}/_matrix/client/r0/sync"
         headers = {
             "Authorization": f"Bearer {token}",
@@ -161,15 +163,13 @@ class RSSBot:
         filter = json.dumps({
             "room": {
                 "timeline": {
-                    "limit": 5  # Ridotto il numero di eventi richiesti
+                    "limit": 10
                 }
             }
         })
         params = {
-            "filter": filter
+            "filter": filter  # The value must be a valid JSON string
         }
-
-        backoff = 1  # Backoff iniziale in secondi
 
         while True:
             try:
@@ -178,27 +178,29 @@ class RSSBot:
                         response.raise_for_status()
                         data = await response.json()
 
+                        # Update the since token for the next request
                         next_batch = data.get("next_batch")
                         if next_batch:
                             params["since"] = next_batch
 
+                        # Handle room events
                         if "rooms" in data and "join" in data["rooms"]:
                             room_events = data["rooms"]["join"].get(self.id_room, {}).get("timeline", {}).get("events", [])
                             for event in room_events:
                                 if event["type"] == "m.room.message":
+                                    # Mark the message as read
                                     await self.mark_message_as_read(event["event_id"])
                                 elif event["type"] == "m.room.member" and event["content"]["membership"] == "join":
+                                    # Send a welcome message
                                     user_id = event["state_key"]
                                     welcome_message = f"Welcome to the room, {user_id}!"
                                     await self.send_message(welcome_message)
 
-                        backoff = 1  # Resetta il backoff dopo una richiesta riuscita
             except aiohttp.ClientError as e:
                 logger.error(f"Error listening for events: {e}")
-                await asyncio.sleep(backoff)
-                backoff = min(backoff * 2, 60)  # Aumenta il backoff esponenzialmente, massimo 60 secondi
-            await asyncio.sleep(1)  # Aggiunto un ritardo per ridurre l'uso della CPU
-
+                await asyncio.sleep(30)  # Wait 30 seconds before retrying
+                
+                        
     def is_mute_time(self) -> bool:
         try:
             now = datetime.now().time()
@@ -230,6 +232,7 @@ class RSSBot:
             base_time = datetime.now()
             cron = self.cron
 
+            # Start the listener for room events
             task_listen = asyncio.create_task(self.listen_for_events())
 
             while True:
@@ -251,13 +254,14 @@ class RSSBot:
         finally:
             logger.info("Cancelling all running tasks...")
             tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-            [task.cancel() for task in tasks]
+            [task.cancel() for task in tasks]  # Cancel all running tasks
 
             logger.info("Bot stopped.")
 
+
 def handle_sigint(signal, frame):
     logger.info("SIGINT received, shutting down gracefully.")
-    raise KeyboardInterrupt
+    raise KeyboardInterrupt  # Do not raise CancelledError
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_sigint)
