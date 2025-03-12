@@ -1,4 +1,4 @@
-# RSS to Element Bot
+# Synapse RSS Bot
 
 This project is a bot that reads articles from RSS feeds and sends them to a Synapse (Element) room.
 
