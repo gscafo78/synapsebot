@@ -1,0 +1,13 @@
+{
+    "token": "xxxxxxxxxxxxxxxxxxxxxxx",
+    "url_synapse": "127.0.0.1",
+    "port_synapse": "8008",
+    "id_room": "xxxxxxxxxxxxxxxxxxxxxxx",
+    "rss": ["www.rss1.com", 
+            "www.rss2.com"],
+    "cron": "* * * * *",
+    "mute": {
+        "from": "20:00",
+        "to": "08:00"
+    }
+}

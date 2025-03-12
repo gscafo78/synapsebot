@@ -1,0 +1,44 @@
+# See http://help.github.com/ignore-files/ for more about ignoring files.
+
+# compiled output
+/out-tsc
+/tmp
+
+# dependencies
+/node_modules
+npm-debug.log
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+
+# misc
+/.angular/cache
+.env
+token.txt
+.env.prod
+.nx/cache
+.nx/workspace-data
+/.sass-cache
+/connect.lock
+/coverage
+/dist
+/libpeerconnection.log
+*.log
+/typings
+settings.json
+
+# System Files
+.DS_Store
+Thumbs.db
