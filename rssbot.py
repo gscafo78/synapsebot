@@ -8,14 +8,14 @@ import time
 import logging
 from typing import Optional, Dict, List
 
-# Configurazione del logging
+# Logging configuration
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 class RSSBot:
     def __init__(self, config_file: str):
         try:
-            # Carica il file di configurazione
+            # Load the configuration file
             with open(config_file, 'r') as file:
                 self.config = json.load(file)
             self.token = self.config.get('token')
@@ -27,48 +27,48 @@ class RSSBot:
             self.mute_from = self.config.get('mute', {}).get('from')
             self.mute_to = self.config.get('mute', {}).get('to')
 
-            # Verifica che tutti i campi necessari siano presenti
+            # Check that all necessary fields are present
             if not all([self.token, self.url_synapse, self.port_synapse, self.id_room, self.rss_feeds, self.cron, self.mute_from, self.mute_to]):
-                raise ValueError("Configurazione incompleta o errata nel file JSON.")
+                raise ValueError("Incomplete or incorrect configuration in the JSON file.")
         except FileNotFoundError:
-            logger.error(f"File di configurazione '{config_file}' non trovato.")
+            logger.error(f"Configuration file '{config_file}' not found.")
             raise
         except json.JSONDecodeError:
-            logger.error(f"Errore nel parsing del file JSON '{config_file}'. Verifica la sintassi.")
+            logger.error(f"Error parsing the JSON file '{config_file}'. Check the syntax.")
             raise
         except Exception as e:
-            logger.error(f"Errore durante l'inizializzazione del bot: {e}")
+            logger.error(f"Error during bot initialization: {e}")
             raise
 
     def fetch_random_article(self) -> Optional[Dict[str, str]]:
         articles = []
         for feed_url in self.rss_feeds:
             try:
-                # Parsing del feed RSS
+                # Parse the RSS feed
                 feed = feedparser.parse(feed_url)
-                if feed.bozo:  # Controlla se ci sono errori nel parsing del feed
-                    logger.warning(f"Errore nel parsing del feed RSS: {feed_url}. Errore: {feed.bozo_exception}")
+                if feed.bozo:  # Check for errors in parsing the feed
+                    logger.warning(f"Error parsing the RSS feed: {feed_url}. Error: {feed.bozo_exception}")
                     continue
                 for entry in feed.entries:
                     articles.append({
                         'title': entry.title,
                         'link': entry.link,
-                        'summary': entry.summary if hasattr(entry, 'summary') else "Nessun sommario disponibile."
+                        'summary': entry.summary if hasattr(entry, 'summary') else "No summary available."
                     })
             except Exception as e:
-                logger.error(f"Errore durante il fetching del feed {feed_url}: {e}")
+                logger.error(f"Error fetching the feed {feed_url}: {e}")
                 continue
 
-        # Restituisce un articolo casuale se disponibile
+        # Return a random article if available
         return random.choice(articles) if articles else None
 
     def send_message(self, message: str) -> bool:
-        # Assicurati che l'URL includa il protocollo http://
+        # Ensure the URL includes the http:// protocol
         url_synapse = self.url_synapse
         if not url_synapse.startswith("http://") and not url_synapse.startswith("https://"):
             url_synapse = "http://" + url_synapse
 
-        # Costruisce l'URL per l'invio del messaggio utilizzando la porta configurata
+        # Construct the URL for sending the message using the configured port
         url = f"{url_synapse}:{self.port_synapse}/_matrix/client/r0/rooms/{self.id_room}/send/m.room.message"
         headers = {
             "Authorization": f"Bearer {self.token}",
@@ -79,13 +79,13 @@ class RSSBot:
             "body": message
         }
         try:
-            # Invia il messaggio
+            # Send the message
             response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()  # Solleva un'eccezione per codici di stato HTTP non riusciti
-            logger.info(f"Messaggio inviato con successo: {message}")
+            response.raise_for_status()  # Raise an exception for unsuccessful HTTP status codes
+            logger.info(f"Message sent successfully: {message}")
             return True
         except requests.exceptions.RequestException as e:
-            logger.error(f"Errore durante l'invio del messaggio: {e}")
+            logger.error(f"Error sending the message: {e}")
             return False
 
     def is_mute_time(self) -> bool:
@@ -94,26 +94,26 @@ class RSSBot:
             mute_from = datetime.strptime(self.mute_from, "%H:%M").time()
             mute_to = datetime.strptime(self.mute_to, "%H:%M").time()
 
-            # Controlla se l'orario corrente è all'interno dell'intervallo di silenzio
+            # Check if the current time is within the mute interval
             if mute_from < mute_to:
                 return mute_from <= now <= mute_to
-            else:  # Intervallo che attraversa la mezzanotte
+            else:  # Interval that crosses midnight
                 return now >= mute_from or now <= mute_to
         except ValueError as e:
-            logger.error(f"Errore nel parsing degli orari di mute: {e}")
+            logger.error(f"Error parsing mute times: {e}")
             return False
 
     def job(self):
         if not self.is_mute_time():
             article = self.fetch_random_article()
             if article:
-                message = f"Nuovo articolo: {article['title']}\n{article['link']}"
+                message = f"New article: {article['title']}\n{article['link']}"
                 if not self.send_message(message):
-                    logger.warning("Invio del messaggio fallito.")
+                    logger.warning("Message sending failed.")
             else:
-                logger.info("Nessun articolo trovato.")
+                logger.info("No articles found.")
         else:
-            logger.info("Tempo di silenzio attivo, nessun messaggio inviato.")
+            logger.info("Mute time active, no message sent.")
 
     def run(self):
         try:
@@ -121,12 +121,12 @@ class RSSBot:
             cron = self.cron
 
             while True:
-                # Calcola il prossimo orario di esecuzione
+                # Calculate the next execution time
                 iter_cron = croniter(cron, base_time)
                 next_run = iter_cron.get_next(datetime)
 
                 sleep_time = (next_run - datetime.now()).total_seconds()
-                logger.info(f"Prossima esecuzione alle {next_run}. Dormirò per {sleep_time} secondi.")
+                logger.info(f"Next execution at {next_run}. Sleeping for {sleep_time} seconds.")
 
                 if sleep_time > 0:
                     time.sleep(sleep_time)
@@ -134,13 +134,13 @@ class RSSBot:
                 self.job()
                 base_time = datetime.now()
         except KeyboardInterrupt:
-            logger.info("Bot interrotto manualmente.")
+            logger.info("Bot manually interrupted.")
         except Exception as e:
-            logger.error(f"Errore durante l'esecuzione del bot: {e}")
+            logger.error(f"Error during bot execution: {e}")
 
 if __name__ == "__main__":
     try:
-        bot = RSSBot('/opt/rsstoelement/setting.json')
+        bot = RSSBot('./setting.json')
         bot.run()
     except Exception as e:
-        logger.error(f"Errore critico durante l'avvio del bot: {e}")
+        logger.error(f"Critical error during bot startup: {e}")

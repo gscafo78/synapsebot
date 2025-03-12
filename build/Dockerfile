@@ -1,18 +1,18 @@
-# Usa un'immagine di base ufficiale di Python
+# Use an official Python base image
 FROM python:3.9-slim
 
-# Imposta la directory di lavoro
+# Set the working directory
 WORKDIR /app
 
-# Copia i file requirements.txt nella directory di lavoro
+# Copy the requirements.txt file into the working directory
 COPY ../requirements.txt .
 
-# Installa le dipendenze
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia il resto del codice dell'applicazione nella directory di lavoro
+# Copy the rest of the application code into the working directory
 COPY ../setting_example.json .
-COPY ../rssbot_stable.py ./main.py
+COPY ../rssbot.py ./main.py
 
-# Specifica il comando per eseguire l'applicazione
+# Specify the command to run the application
 CMD ["python", "main.py"]
