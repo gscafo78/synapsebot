@@ -1,5 +1,5 @@
 # Use an official Python base image
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # Install git
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
@@ -11,6 +11,7 @@ RUN git clone https://github.com/gscafo78/synapsebot.git /app
 WORKDIR /app
 
 # Install dependencies
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 VOLUME /app
