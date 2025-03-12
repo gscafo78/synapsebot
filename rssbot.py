@@ -197,7 +197,7 @@ class RSSBot:
                 logger.error(f"Error listening for events: {e}")
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60)  # Exponentially increase backoff, max 60 seconds
-            await asyncio.sleep(1)  # Added a delay to reduce CPU usage
+            await asyncio.sleep(60)  # Added a delay to reduce CPU usage
 
     def is_mute_time(self) -> bool:
         try:
