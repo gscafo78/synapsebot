@@ -49,16 +49,10 @@ pip install -r requirements.txt
 
 ## Running
 
-To run the bot in stable mode:
+To run the bot:
 
 ```sh
-python rssbot_stable.py
-```
-
-To run the bot in development mode:
-
-```sh
-python rssbot_dev.py
+python rssbot.py
 ```
 
 ## Features
