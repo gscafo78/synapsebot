@@ -26,8 +26,8 @@ class ConfigModel(BaseModel):
 class RSSBot:
     def __init__(self, config_file: str):
         self.config_file = config_file
-        self.rss_cache = {}  # Cache per i feed RSS
-        self.cache_expiry = timedelta(minutes=30)  # Tempo di scadenza della cache
+        self.rss_cache = {}  # Cache for RSS feeds
+        self.cache_expiry = timedelta(minutes=30)  # Cache expiration time
         try:
             with open(config_file, 'r') as file:
                 config_data = json.load(file)
@@ -35,7 +35,7 @@ class RSSBot:
             self.url_synapse = self.config.url_synapse
             self.port_synapse = self.config.port_synapse
             self.id_room = self.config.id_room
-            self.rss_feeds = self.config.rss[:10]  # Limita a 10 feed RSS
+            self.rss_feeds = self.config.rss[:10]  # Limit to 10 RSS feeds
             self.cron = self.config.cron
             self.mute_from = self.config.mute.get('from')
             self.mute_to = self.config.mute.get('to')
@@ -161,7 +161,7 @@ class RSSBot:
         filter = json.dumps({
             "room": {
                 "timeline": {
-                    "limit": 5  # Ridotto il numero di eventi richiesti
+                    "limit": 5  # Reduced the number of requested events
                 }
             }
         })
@@ -169,7 +169,7 @@ class RSSBot:
             "filter": filter
         }
 
-        backoff = 1  # Backoff iniziale in secondi
+        backoff = 1  # Initial backoff in seconds
 
         while True:
             try:
@@ -192,12 +192,12 @@ class RSSBot:
                                     welcome_message = f"Welcome to the room, {user_id}!"
                                     await self.send_message(welcome_message)
 
-                        backoff = 1  # Resetta il backoff dopo una richiesta riuscita
+                        backoff = 1  # Reset backoff after a successful request
             except aiohttp.ClientError as e:
                 logger.error(f"Error listening for events: {e}")
                 await asyncio.sleep(backoff)
-                backoff = min(backoff * 2, 60)  # Aumenta il backoff esponenzialmente, massimo 60 secondi
-            await asyncio.sleep(1)  # Aggiunto un ritardo per ridurre l'uso della CPU
+                backoff = min(backoff * 2, 60)  # Exponentially increase backoff, max 60 seconds
+            await asyncio.sleep(60)  # Added a delay to reduce CPU usage
 
     def is_mute_time(self) -> bool:
         try:
@@ -262,7 +262,7 @@ def handle_sigint(signal, frame):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_sigint)
     try:
-        bot = RSSBot('/opt/rsstoelement/settings.json')
+        bot = RSSBot('./settings.json')
         asyncio.run(bot.run())
     except KeyboardInterrupt:
         logger.info("Bot terminated by user.")
