@@ -188,9 +188,14 @@ class RSSBot:
                                 if event["type"] == "m.room.message":
                                     await self.mark_message_as_read(event["event_id"])
                                 elif event["type"] == "m.room.member" and event["content"]["membership"] == "join":
+                                    # user_id = event["state_key"]
+                                    # welcome_message = f"Welcome to the room, {user_id}!"
                                     user_id = event["state_key"]
-                                    welcome_message = f"Welcome to the room, {user_id}!"
+                                    user_name = user_id.split(":")[0]  # Extract the part before the colon
+                                    welcome_message = f"Welcome to the room, {user_name}!"
                                     await self.send_message(welcome_message)
+
+
 
                         backoff = 1  # Reset backoff after a successful request
             except aiohttp.ClientError as e:
